@@ -1,17 +1,23 @@
-#include <sys/types.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <stdio.h>
-
-int main(int argc, char const * argv[]) {
-    char *line = NULL;
-    size_t linecap = 0;
-    ssize_t linelen;
-
-    linelen = getline(&line, &linecap, stdin);
-
-    printf("Process ID: %d realizo el hash ", getpid());
-    fwrite(line, linelen, 1, stdout);
+#include <stdlib.h>
 
 
-    return getpid()*2;      // esto no va a ir a ningun lado
+int main(int argc, char const * argv[]){
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    // recibo de stdin el path
+
+    char * pathName = 
+
+    char * hash = md5sum(/* string del path*/);
+
+    // devuelvo por stdout el hash
+
+    printf("%s", hash);
+
+    return 0;
 }

@@ -1,15 +1,17 @@
-#include <unistd.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
+
+int main(int argc, char const * argv[]) {
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
+
+    linelen = getline(&line, &linecap, stdin);
+
+    printf("Process ID: %d realizo el hash ", getpid());
+    fwrite(line, linelen, 1, stdout);
 
 
-int main(int argc, char const * argv[]){
-
-    setvbuf(stdout, NULL, _IONBF, 0);
-
-    printf("64\n");
-
-    return 0;
+    return getpid()*2;      // esto no va a ir a ningun lado?
 }
