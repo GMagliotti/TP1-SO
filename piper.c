@@ -17,7 +17,9 @@ int main(int argc, char const * argv[]){
     int pipem2s[2];
     int pipes2m[2];
     pipe(pipem2s);
-    pipe(pipes2m)
+    pipe(pipes2m);
+
+    
 
     if(fork() == 0) {       // conecta el stdout de este
         //MASTER
