@@ -10,8 +10,8 @@ int status = 0;
 int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0 );
 
-    char * testf[] = {"testf.h", NULL };
-    char * tests[] = {"tests.h", NULL };
+    char * testf[] = {"testf", NULL };
+    char * tests[] = {"tests", NULL };
     char * envf[] = { NULL };
     char * envs[] = { NULL };
     
@@ -44,7 +44,7 @@ int main(int argc, char const * argv[]){
                     }
                     
                 }
-                execve("testf.h", testf, envf);
+                execve("testf", testf, envf);
             } else{
                 //Error creando slave
             }
