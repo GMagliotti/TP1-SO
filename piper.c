@@ -14,8 +14,13 @@ int main(int argc, char const * argv[]){
     char * tests[] = {"tests", NULL };
     char * envs[] = { NULL };
 
-    //hacer algun calculo con la cantidad de archivos que me pasan para ver cuantos slaves creo
-    int n = 5;
+    if (argc < 2) {                     // si no se pasan archivos a hashear
+        printf("Usage: %s file1 file2 ... fileN\n", argv[0]);
+        return 1;
+    }
+
+    int n = argc-1>5? 5 : argc-1;   // si son menos de 5 archivos entonces n = cant de archivos
+
     pid_t slavePids [n];
     
     //pid_t masterPid = fork();
@@ -57,7 +62,6 @@ int main(int argc, char const * argv[]){
             }
         }
 
-        int pendingTasks[n]; //cantidad de tareas pendientes por cada slave
         int argNumber = 1; //en argumento #1 aparece el primer path a los archivos que quiero
         //envio inicial de archivos a slaves (mando solo 1 archivo, despues cambiar)
         for(int i = 0; i < n; i++){
@@ -69,9 +73,7 @@ int main(int argc, char const * argv[]){
             }
             //fwrite(argv[argNumber], 1, strlen(argv[argNumber]), master2slave[i][1]);
             argNumber++;
-            pendingTasks[i] = 1;
         }
-
     
         while(argNumber < argc){  
             fd_set masterReadSet;

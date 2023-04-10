@@ -4,8 +4,7 @@ piper: piper.c
 	gcc -Wall $< -o $@
 
 tests: tests.c
-	gcc -Wall $< -o $@
-
+	gcc -Wall $< -o $@ -lcrypto
 
 clean:
 	rm -f piper tests

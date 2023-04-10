@@ -1,75 +1,54 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <openssl/md5.h>
 
+#define BUF_SIZE 1024
 
-int main(int argc, char const * argv[]){
+int main() {
+    char file_path[BUF_SIZE];
+    unsigned char hash[MD5_DIGEST_LENGTH];
+    char hex_hash[2*MD5_DIGEST_LENGTH + 1];
+    int bytes_read;
 
-    setvbuf(stdout, NULL, _IONBF, 0);
+    int i = 0;
 
-    // recibo de stdin el path
-    sleep(getpid()%8);
-    //char * pathName = stdin;
-    char pathName[256];
+    while (i++ < 1) {
+        // read file path from stdin
+        if ((bytes_read = read(STDIN_FILENO, file_path, BUF_SIZE)) <= 0) {
+            break;
+        }
+        // file_path[bytes_read-1] = '\0'; // remove newline character
 
-    int n = read(0, pathName, 256); //en fd=1 recibo pathname, lo guardo en var pathName, size max 100
-    
-    pathName[n] = '\0'; //agrego el \0 al final del string
-    if(n == -1){
-        perror("Error leyendo del pipe master2slave");
-        exit(1);
-    }
-    else if(n == 0){
-        perror("Pipe master2slave cerrado");
-        exit(1);
-    }
-    
-//    char * hash = md5sum(/* string del path*/);
+        // calculate hash
+        FILE *file = fopen(file_path, "r");
+        if (file == NULL) {
+            printf("Error: Could not open file %s\n", file_path);
+            continue;
+        }
+        MD5_CTX md5_ctx;
+        MD5_Init(&md5_ctx);
+        unsigned char buf[BUF_SIZE];
+        int bytes_read;
+        while ((bytes_read = fread(buf, 1, BUF_SIZE, file)) != 0) {
+            MD5_Update(&md5_ctx, buf, bytes_read);
+        }
+        MD5_Final(hash, &md5_ctx);
+        fclose(file);
 
-    // devuelvo por stdout el hash
+        // convert hash to hexadecimal string
+        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+            sprintf(&hex_hash[i*2], "%02x", (unsigned int)hash[i]);
+        }
+        hex_hash[2*MD5_DIGEST_LENGTH] = '\0';
 
-    n = write(1, pathName, 256); //en fd=0 escribo el hash (aca dice pathName como prueba)
-    if(n == -1){
-        perror("Error escribiendo en pipe slave2master");
-        exit(1);
-    }
-    else if(n == 0){
-        perror("Pipe slave2master cerrado");
-        exit(1);
+        // write hash to stdout
+        if (write(STDOUT_FILENO, hex_hash, 2*MD5_DIGEST_LENGTH+1) < 0) {
+            printf("Error: Could not write hash to stdout\n");
+            break;
+        }
     }
 
     return 0;
 }
-
-/**********************************************************/
-/*
-#include <openssl/md5.h>
-#include <unistd.h>
-int main()
-{
-    int n;
-    MD5_CTX c;
-    char buf[512];
-    ssize_t bytes;
-    unsigned char out[MD5_DIGEST_LENGTH];
-
-    MD5_Init(&c);
-    bytes=read(STDIN_FILENO, buf, 512);
-    while(bytes > 0)
-    {
-        MD5_Update(&c, buf, bytes);
-        bytes=read(STDIN_FILENO, buf, 512);
-    }
-
-    MD5_Final(out, &c);
-
-    for(n=0; n<MD5_DIGEST_LENGTH; n++)
-        printf("%02x", out[n]);
-    printf("\n");
-
-    return(0);        
-}
-*/
