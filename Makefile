@@ -1,9 +1,6 @@
-all: piper testf tests
+all: piper tests
 
 piper: piper.c
-	gcc -Wall $< -o $@
-
-testf: testf.c
 	gcc -Wall $< -o $@
 
 tests: tests.c
@@ -11,6 +8,6 @@ tests: tests.c
 
 
 clean:
-	rm -f piper testf tests
+	rm -f piper tests
 
 .PHONY: all clean

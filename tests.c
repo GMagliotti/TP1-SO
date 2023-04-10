@@ -3,6 +3,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 int main(int argc, char const * argv[]){
@@ -10,16 +11,35 @@ int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0);
 
     // recibo de stdin el path
+    sleep(getpid()%8);
+    //char * pathName = stdin;
+    char pathName[256];
+
+    int n = read(0, pathName, 256); //en fd=1 recibo pathname, lo guardo en var pathName, size max 100
     
-    char * pathName = stdin;
-
-    read(1, pathName, 100); //en fd=1 recibo pathname, lo guardo en var pathName, size max 100
-
+    pathName[n] = '\0'; //agrego el \0 al final del string
+    if(n == -1){
+        perror("Error leyendo del pipe master2slave");
+        exit(1);
+    }
+    else if(n == 0){
+        perror("Pipe master2slave cerrado");
+        exit(1);
+    }
+    
 //    char * hash = md5sum(/* string del path*/);
 
     // devuelvo por stdout el hash
 
-    printf("%s", pathName);
+    n = write(1, pathName, 256); //en fd=0 escribo el hash (aca dice pathName como prueba)
+    if(n == -1){
+        perror("Error escribiendo en pipe slave2master");
+        exit(1);
+    }
+    else if(n == 0){
+        perror("Pipe slave2master cerrado");
+        exit(1);
+    }
 
     return 0;
 }
