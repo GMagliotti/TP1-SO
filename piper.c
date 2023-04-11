@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 
 #define PIPE_R_END 0
 #define PIPE_W_END 1
