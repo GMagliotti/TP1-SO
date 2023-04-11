@@ -8,6 +8,7 @@
 #define PIPE_R_END 0
 #define PIPE_W_END 1
 #define FILENAME_SIZE 1024
+#define MAX_SLAVE_COUNT 10
 
 pid_t wpid;
 int status = 0;
@@ -28,13 +29,13 @@ int main(int argc, char const * argv[]){
 
     int n = argc-1>5? 5 : argc-1;   // si son menos de 5 archivos entonces n = cant de archivos
 
-    pid_t slavePids [n];
+    pid_t slavePids [MAX_SLAVE_COUNT];
     
     //pid_t masterPid = fork();
-
-        int slave2master[n][2]; //fds de pipe que slave retorna rta   -> 0 read, 1 write
-        int master2slave[n][2]; //fds de pipe que master manda archivos a slave
-        int masterRead[n]; //fds de pipe que master lee de slaves (se usara para select)
+        // Hay q usat malloc xddd
+        int slave2master[MAX_SLAVE_COUNT][2]; //fds de pipe que slave retorna rta   -> 0 read, 1 write
+        int master2slave[MAX_SLAVE_COUNT][2]; //fds de pipe que master manda archivos a slave
+        int masterRead[MAX_SLAVE_COUNT]; //fds de pipe que master lee de slaves (se usara para select)
         for(int i = 0; i < n; i++){
             if(pipe(slave2master[i]) == -1 || pipe(master2slave[i]) == -1){
                 perror("Error creando pipe");
@@ -48,24 +49,27 @@ int main(int argc, char const * argv[]){
             slavePids[i] = fork();
             if(slavePids[i] == 0){
                 //SLAVE numero i
-                close(slave2master[i][PIPE_R_END]); //en pipe de slave2master, cierro el read
-                close(master2slave[i][PIPE_W_END]); //en pipe de master2slave, cierro el write
                 dup2(master2slave[i][PIPE_R_END], 0); //reemplazo stdin por el read del pipe master2slave
                 dup2(slave2master[i][PIPE_W_END], 1); //reemplazo stdout por el write del pipe slave2master
                 
                 //cierro los fd's de los otros pipes
                 for(int j = 0; j < n; j++){
-                    if(j != i){
-                        close(slave2master[j][PIPE_R_END]);
-                        close(slave2master[j][PIPE_W_END]);
-                        close(master2slave[j][PIPE_R_END]);
-                        close(master2slave[j][PIPE_W_END]);
-                    }
+                        if (close(slave2master[j][PIPE_R_END]) == -1|| close(slave2master[j][PIPE_W_END]) == -1 ||
+                        close(master2slave[j][PIPE_R_END]) == -1 || close(master2slave[j][PIPE_W_END]) == -1) {
+                            perror("Close");
+                            exit(1);
+                        }
                 }
                 execve("tests", tests, envs);
             } else if (slavePids[i] == -1){
                 //Error creando slave
                 perror("Error creando slave");
+            }
+        }
+
+        for (int i = 0; i < n ; i++) {
+            if (close(master2slave[i][PIPE_R_END]) == -1 || close(slave2master[i][PIPE_W_END]) == -1) {
+                perror("Error cerrando pipes");
             }
         }
 
@@ -77,7 +81,7 @@ int main(int argc, char const * argv[]){
             //printf("Mandando archivo %s a slave %d con pid: %i\n", argv[argNumber], i, slavePids[i]);
             int retWrite = write(master2slave[i][PIPE_W_END], argv[argNumber], strlen(argv[argNumber]));
             if (retWrite == -1) {
-                perror("Error write failed\n");
+                perror("Error write failed");
                 exit(1);
             }
             slaveCurrentFile[i] = (char *)argv[argNumber];
@@ -87,7 +91,7 @@ int main(int argc, char const * argv[]){
     
         int printedArgNumber;
 
-        while(printedArgNumber + 1 != argNumber){  
+        while(printedArgNumber != argNumber - 1){  
             fd_set masterReadSet;
             FD_ZERO(&masterReadSet); //vacío el set
             for (int i = 0; i < n; i++) {
@@ -113,7 +117,7 @@ int main(int argc, char const * argv[]){
                         //mando siguiente archivo a ese slave
                         //int writeRet = fwrite(argv[argNumber], 1, strlen(argv[argNumber]), master2slave[j][1]);
                         // printf("Mandando archivo %s a slave %d con pid: %i\n", argv[argNumber], j, slavePids[j]);
-                        int writeRet = write(master2slave[j][1], argv[argNumber], strlen(argv[argNumber]));
+                        int writeRet = write(master2slave[j][PIPE_W_END], argv[argNumber], strlen(argv[argNumber]));
                         if (writeRet == -1) {
                             perror("Error: write failed\n");
                             exit(1);
@@ -132,21 +136,14 @@ int main(int argc, char const * argv[]){
         }
 
     for (int i = 0; i < n; i++) {
-        close(master2slave[n][PIPE_W_END]); //cerrar los pipes de escritura del master
-        close(master2slave[n][PIPE_R_END]); //cerrar los pipes de escritura del master
-        close(slave2master[n][PIPE_W_END]); //cerrar los pipes de escritura del master
-        close(slave2master[n][PIPE_R_END]); //cerrar los pipes de escritura del master
+        if (close(master2slave[i][PIPE_W_END]) == -1 || close(slave2master[i][PIPE_R_END])) { //cerrar los pipes de escritura del master    
+            perror("Close");
+            exit(1);
+        }
     }
 
-    printf("llegue hasta aca");
-
-    // HAY QUE CERRAR LOS PIPES AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (por eso cuelga)    
-
     while((wpid = waitpid(-1, &status, 0)) > 0);
-    printf("FEESHEN: %d\n", wpid);
     printf("Bofadeez + pid: %i\n", getpid());
-
-    while (1);
 
     return 0;
 }
@@ -155,7 +152,7 @@ int main(int argc, char const * argv[]){
 void readFinalizedTask(char * hashValue, int fd) {
     int readRet = read(fd, hashValue, 256);
     if(readRet == -1){
-        perror("Error read failed\n");
+        perror("Error read failed");
         exit(1);
     }
     return;

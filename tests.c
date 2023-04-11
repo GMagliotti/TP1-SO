@@ -12,16 +12,7 @@ int main() {
     char hex_hash[2*MD5_DIGEST_LENGTH + 1];
     int bytes_read;
 
-    while (1) {
-        // read file path from stdin
-        if ((bytes_read = read(STDIN_FILENO, file_path, BUF_SIZE)) <= 0) {
-            exit(1);
-            if (bytes_read == 0) {
-                exit(1);
-            } else {
-                perror("Error reading file");
-            }
-        }
+    while ((bytes_read = read(STDIN_FILENO, file_path, BUF_SIZE)) > 0) {
         file_path[bytes_read] = '\0'; // null terminated
 
         // calculate hash
@@ -51,6 +42,12 @@ int main() {
             printf("Error: Could not write hash to stdout\n");
             break;
         }
+    }
+    if (bytes_read == 0) {
+        exit(1);
+    } else {
+        perror("Error reading file");
+        exit(1);
     }
 
     return 0;
