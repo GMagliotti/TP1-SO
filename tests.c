@@ -12,14 +12,17 @@ int main() {
     char hex_hash[2*MD5_DIGEST_LENGTH + 1];
     int bytes_read;
 
-    int i = 0;
-
-    while (i++ < 1) {
+    while (1) {
         // read file path from stdin
         if ((bytes_read = read(STDIN_FILENO, file_path, BUF_SIZE)) <= 0) {
-            break;
+            exit(1);
+            if (bytes_read == 0) {
+                exit(1);
+            } else {
+                perror("Error reading file");
+            }
         }
-        // file_path[bytes_read-1] = '\0'; // remove newline character
+        file_path[bytes_read] = '\0'; // null terminated
 
         // calculate hash
         FILE *file = fopen(file_path, "r");
