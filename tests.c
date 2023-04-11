@@ -2,49 +2,44 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <openssl/md5.h>
+#include <limits.h>
 
 #define BUF_SIZE 1024
+#define HASH_MD5_SIZE 32
 
 int main() {
-    char file_path[BUF_SIZE];
-    unsigned char hash[MD5_DIGEST_LENGTH];
-    char hex_hash[2*MD5_DIGEST_LENGTH + 1];
-    int bytes_read;
+    char filePath[BUF_SIZE];
+    char hexHash[HASH_MD5_SIZE + 1];
+    int bytesRead;
 
-    while ((bytes_read = read(STDIN_FILENO, file_path, BUF_SIZE)) > 0) {
-        file_path[bytes_read] = '\0'; // null terminated
+    while ((bytesRead = read(STDIN_FILENO, filePath, BUF_SIZE)) > 0) {
+        filePath[bytesRead] = '\0'; // null terminated
 
         // calculate hash
-        FILE *file = fopen(file_path, "r");
-        if (file == NULL) {
-            printf("Error: Could not open file %s\n", file_path);
+        char cmd[BUF_SIZE+12];
+        sprintf(cmd, "md5sum %s", filePath);
+
+        FILE *fp = popen(cmd, "r");
+        if (fp == NULL) {
+            printf("Error: Could not execute command %s\n", cmd);
             continue;
         }
-        MD5_CTX md5_ctx;
-        MD5_Init(&md5_ctx);
-        unsigned char buf[BUF_SIZE];
-        int bytes_read;
-        while ((bytes_read = fread(buf, 1, BUF_SIZE, file)) != 0) {
-            MD5_Update(&md5_ctx, buf, bytes_read);
+        if (fscanf(fp, "%32s", hexHash) != 1) {
+            printf("Error: Could not read hash from output of command %s\n", cmd);
+            pclose(fp);
+            continue;
         }
-        MD5_Final(hash, &md5_ctx);
-        fclose(file);
-
-        // convert hash to hexadecimal string
-        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-            sprintf(&hex_hash[i*2], "%02x", (unsigned int)hash[i]);
-        }
-        hex_hash[2*MD5_DIGEST_LENGTH] = '\0';
+        pclose(fp);
 
         // write hash to stdout
-        if (write(STDOUT_FILENO, hex_hash, 2*MD5_DIGEST_LENGTH+1) < 0) {
+        if (write(STDOUT_FILENO, hexHash, HASH_MD5_SIZE+1) < 0) {
             printf("Error: Could not write hash to stdout\n");
             break;
         }
     }
-    if (bytes_read == 0) {
-        exit(1);
+
+    if (bytesRead == 0) {
+        exit(0);
     } else {
         perror("Error reading file");
         exit(1);

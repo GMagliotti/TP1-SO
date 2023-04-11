@@ -32,7 +32,7 @@ int main(int argc, char const * argv[]){
     pid_t slavePids [MAX_SLAVE_COUNT];
     
     //pid_t masterPid = fork();
-        // Hay q usat malloc xddd
+        // Podemos usar malloc
         int slave2master[MAX_SLAVE_COUNT][2]; //fds de pipe que slave retorna rta   -> 0 read, 1 write
         int master2slave[MAX_SLAVE_COUNT][2]; //fds de pipe que master manda archivos a slave
         int masterRead[MAX_SLAVE_COUNT]; //fds de pipe que master lee de slaves (se usara para select)
@@ -64,6 +64,7 @@ int main(int argc, char const * argv[]){
             } else if (slavePids[i] == -1){
                 //Error creando slave
                 perror("Error creando slave");
+                //exit(1);
             }
         }
 
@@ -122,7 +123,7 @@ int main(int argc, char const * argv[]){
                             perror("Error: write failed\n");
                             exit(1);
                         }
-                        slaveCurrentFile[j]= (char *) argv[++argNumber];
+                        slaveCurrentFile[j]= (char *) argv[argNumber++];
                     }
                 }
 
