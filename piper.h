@@ -9,10 +9,16 @@
 #include <string.h>
 #include <sys/select.h>
 
+int calculateSlaves(int fileCount);
+
 void allocateMem(int slaveCount);
 void freeMem(int slaveCount);
 
 void readFinalizedTask(char * hashValue, int fd);
+void writeToSlave(int slaveNum, char * filePath);
+
 void printSlave( char * hashValue, pid_t slavePid, char * fileName);
+
+void closeMaster2SlaveWrite(int n);
 
 #endif

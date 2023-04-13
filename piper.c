@@ -23,8 +23,8 @@ int main(int argc, char const * argv[]){
         return 1;
     }
 
-    const int n = argc-1>5? 5 : argc-1;   // si son menos de 5 archivos entonces n = cant de archivos
-
+    const int n = calculateSlaves(argc-1);
+    
     allocateMem(n);                 // reserva la memoria en base a n, la cantidad de slaves
 
     for(int i = 0; i < n; i++){     
@@ -53,9 +53,8 @@ int main(int argc, char const * argv[]){
             }
             execve("tests", tests, envs);
         } else if (slavePids[i] == -1){
-            //Error creando slave
             perror("Error creando slave");
-            //exit(1);
+            exit(1);
         }
     }
 
@@ -70,14 +69,8 @@ int main(int argc, char const * argv[]){
 
     //envio inicial de archivos a slaves (mando solo 1 archivo, despues cambiar. Afecta a slaveCurrentFile tambien)
     for(int i = 0; i < n; i++){
-        //printf("Mandando archivo %s a slave %d con pid: %i\n", argv[argNumber], i, slavePids[i]);
-        int retWrite = write(master2slave[i][PIPE_W_END], argv[argNumber], strlen(argv[argNumber]));
-        if (retWrite == -1) {
-            perror("Error write failed");
-            exit(1);
-        }
+        writeToSlave(i, (char *)argv[argNumber]);
         slaveCurrentFile[i] = (char *)argv[argNumber];
-        //fwrite(argv[argNumber], 1, strlen(argv[argNumber]), master2slave[i][1]);
         argNumber++;
     }
     
@@ -90,7 +83,6 @@ int main(int argc, char const * argv[]){
             FD_SET(masterRead[i], &masterReadSet); //agrego los fds de los pipes que leo al set
         }
         //espero a que algun slave termine su tarea
-        //int selectRet = select(n+1, masterRead, NULL, NULL, NULL);
         int selectRet = select(masterRead[n-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
             perror("Error in select\n");
@@ -107,13 +99,7 @@ int main(int argc, char const * argv[]){
 
                 if (argNumber < argc) {
                     //mando siguiente archivo a ese slave
-                    //int writeRet = fwrite(argv[argNumber], 1, strlen(argv[argNumber]), master2slave[j][1]);
-                    // printf("Mandando archivo %s a slave %d con pid: %i\n", argv[argNumber], j, slavePids[j]);
-                    int writeRet = write(master2slave[j][PIPE_W_END], argv[argNumber], strlen(argv[argNumber]));
-                    if (writeRet == -1) {
-                        perror("Error: write failed\n");
-                        exit(1);
-                    }
+                    writeToSlave(j, (char *)argv[argNumber]);
                     slaveCurrentFile[j]= (char *) argv[argNumber++];
                 }
             }
@@ -127,22 +113,26 @@ int main(int argc, char const * argv[]){
         }
     }
 
-    for (int i = 0; i < n; i++) {
-        if (close(master2slave[i][PIPE_W_END]) == -1 || close(slave2master[i][PIPE_R_END])) { //cerrar los pipes de escritura del master    
-            perror("Close");
-            exit(1);
-        }
-    }
+    closeMaster2SlaveWrite(n);      // cierra el pipe de escritura del master, slave recibe un EOF
 
-    freeMem(n);         // libera la memoria reservada
+    freeMem(n);                     // libera la memoria reservada
 
     while((wpid = waitpid(-1, &status, 0)) > 0);
+
     printf("Bofadeez + pid: %i\n", getpid());
 
     return 0;
 }
 
+/* devuelve la cantidad de slaves */
+int calculateSlaves(int fileCount) {
+    if (fileCount < 5) {
+        return fileCount;
+    }
+    return 5;
+}
 
+/* reserva memoria en base a la cantidad de slaves */
 void allocateMem(int slaveCount) {
     // allocate memory for arrays
     slave2master = (int **) malloc(slaveCount * sizeof(int *));
@@ -158,6 +148,7 @@ void allocateMem(int slaveCount) {
     return;
 }
 
+/* libera la memoria dinamica utilizada */
 void freeMem(int slaveCount) {
     // free memory when done
     for (int i = 0; i < slaveCount; i++) {
@@ -172,6 +163,7 @@ void freeMem(int slaveCount) {
     return;
 }
 
+/* realiza la lectura del fd solicitado, deja el resultado en hashValue */
 void readFinalizedTask(char * hashValue, int fd) {
     int readRet = read(fd, hashValue, 256);
     if(readRet == -1){
@@ -181,7 +173,26 @@ void readFinalizedTask(char * hashValue, int fd) {
     return;
 }
 
+/* manda al esclavo correspondiente el path del archivo */
+void writeToSlave(int slaveNum, char * filePath) {
+    if (write(master2slave[slaveNum][PIPE_W_END], filePath, strlen(filePath)) == -1) {
+        perror("Error: write failed\n");
+        exit(1);
+    }
+}
+
+/* imprime el valor devuelto por el slave */
 void printSlave( char * hashValue, pid_t slavePid, char * fileName) {
     printf("Hash value: %s del slave (PID): %i que recibio el archivo: %s\n", hashValue, slavePid, fileName);
     return;
+}
+
+/* cierra los pipes de escritura del master, mandando un EOF */
+void closeMaster2SlaveWrite(int n) {
+    for (int i = 0; i < n; i++) {
+        if (close(master2slave[i][PIPE_W_END]) == -1) { //cerrar los pipes de escritura del master    
+            perror("Close");
+            exit(1);
+        }
+    }
 }
