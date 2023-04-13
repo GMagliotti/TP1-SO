@@ -25,15 +25,9 @@ int main(int argc, char const * argv[]){
 
     const int n = calculateSlaves(argc-1);
     
-    allocateMem(n);                 // reserva la memoria en base a n, la cantidad de slaves
+    allocateMem(n);                     // reserva la memoria en base a n, la cantidad de slaves
 
-    for(int i = 0; i < n; i++){     
-        if(pipe(slave2master[i]) == -1 || pipe(master2slave[i]) == -1){
-            perror("Error creando pipe");
-            exit(1);
-        }
-        masterRead[i] = slave2master[i][0];
-    }
+    setPipes(n);                        // crea los 2 * n pipes que se van a comunicar master - slave[]
 
     //creacion (fork) de los n procesos slave
     for(int i = 0; i < n; i++){
@@ -43,14 +37,9 @@ int main(int argc, char const * argv[]){
             dup2(master2slave[i][PIPE_R_END], 0); //reemplazo stdin por el read del pipe master2slave
             dup2(slave2master[i][PIPE_W_END], 1); //reemplazo stdout por el write del pipe slave2master
                 
-            //cierro los fd's de los otros pipes
-            for(int j = 0; j < n; j++){
-                    if (close(slave2master[j][PIPE_R_END]) == -1|| close(slave2master[j][PIPE_W_END]) == -1 ||
-                    close(master2slave[j][PIPE_R_END]) == -1 || close(master2slave[j][PIPE_W_END]) == -1) {
-                        perror("Close");
-                        exit(1);
-                    }
-            }
+            //cierro los fd's de los pipes para el slave
+            closePipes(n);
+
             execve("tests", tests, envs);
         } else if (slavePids[i] == -1){
             perror("Error creando slave");
@@ -58,6 +47,7 @@ int main(int argc, char const * argv[]){
         }
     }
 
+    // cerrar el ???
     for (int i = 0; i < n ; i++) {
         if (close(master2slave[i][PIPE_R_END]) == -1 || close(slave2master[i][PIPE_W_END]) == -1) {
             perror("Error cerrando pipes");
@@ -85,7 +75,7 @@ int main(int argc, char const * argv[]){
         //espero a que algun slave termine su tarea
         int selectRet = select(masterRead[n-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
-            perror("Error in select\n");
+            perror("Error in select");
             exit(1);
         }
             
@@ -97,15 +87,13 @@ int main(int argc, char const * argv[]){
                 printSlave(hashValue, slavePids[j], slaveCurrentFile[j]);   // imprimo el archivo que se termino de procesar
                 printedArgNumber++;
 
-                if (argNumber < argc) {
-                    //mando siguiente archivo a ese slave
-                    writeToSlave(j, (char *)argv[argNumber]);
+                if (argNumber < argc) {                         // verifica si quedan archivos por mandar
+                    writeToSlave(j, (char *)argv[argNumber]);   //mando siguiente archivo al slave j
                     slaveCurrentFile[j]= (char *) argv[argNumber++];
                 }
             }
 
-            //puede pasar que a la hora de hacer el for para ver que slave termino su tarea, otros hayan terminado tambien
-            //entonces en el for anterior se mandaría mas de una tarea, sin chequear si ya nos quedamos sin archivos para hashear
+            // nunca paso esto, TODO formalizar
             if(argNumber > argc){
                 printf("me llego mas de uno\n");
                 exit(1);
@@ -163,10 +151,31 @@ void freeMem(int slaveCount) {
     return;
 }
 
+/* crea los pares de pipes que comunican master - slave[] */
+void setPipes(int n) {
+    for(int i = 0; i < n; i++){     
+        if(pipe(slave2master[i]) == -1 || pipe(master2slave[i]) == -1){
+            perror("Error creando pipe");
+            exit(1);
+        }
+        masterRead[i] = slave2master[i][0];
+    }
+}
+
+/* cierra todos los pipes (lo deben llamar los hijos) */
+void closePipes(int n) {
+    for(int j = 0; j < n; j++){
+            if (close(slave2master[j][PIPE_R_END]) == -1|| close(slave2master[j][PIPE_W_END]) == -1 ||
+            close(master2slave[j][PIPE_R_END]) == -1 || close(master2slave[j][PIPE_W_END]) == -1) {
+                perror("Close");
+                exit(1);
+            }
+    }
+}
+
 /* realiza la lectura del fd solicitado, deja el resultado en hashValue */
 void readFinalizedTask(char * hashValue, int fd) {
-    int readRet = read(fd, hashValue, 256);
-    if(readRet == -1){
+    if(read(fd, hashValue, 256) == -1){
         perror("Error read failed");
         exit(1);
     }
@@ -176,7 +185,7 @@ void readFinalizedTask(char * hashValue, int fd) {
 /* manda al esclavo correspondiente el path del archivo */
 void writeToSlave(int slaveNum, char * filePath) {
     if (write(master2slave[slaveNum][PIPE_W_END], filePath, strlen(filePath)) == -1) {
-        perror("Error: write failed\n");
+        perror("Error: write failed");
         exit(1);
     }
 }

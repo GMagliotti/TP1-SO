@@ -14,6 +14,9 @@ int calculateSlaves(int fileCount);
 void allocateMem(int slaveCount);
 void freeMem(int slaveCount);
 
+void setPipes(int n);
+void closePipes(int n);
+
 void readFinalizedTask(char * hashValue, int fd);
 void writeToSlave(int slaveNum, char * filePath);
 
