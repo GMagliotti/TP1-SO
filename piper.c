@@ -1,10 +1,4 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
+#include "piper.h"
 
 #define PIPE_R_END 0
 #define PIPE_W_END 1
@@ -17,11 +11,6 @@ int **slave2master;
 int **master2slave;
 int *masterRead;
 pid_t *slavePids;
-
-void allocateMem(int slaveCount);
-void freeMem(int slaveCount);
-void readFinalizedTask(char * hashValue, int fd);
-void printSlave( char * hashValue, pid_t slavePid, char * fileName);
 
 int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0 );
