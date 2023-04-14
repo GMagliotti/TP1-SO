@@ -1,3 +1,10 @@
+### OWN ###
+piper
+tests
+Files
+.bash_history
+text_files
+
 ### C ###
 # Prerequisites
 *.d
