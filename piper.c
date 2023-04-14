@@ -1,10 +1,7 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include "piper.h"
 
 #define PIPE_R_END 0
 #define PIPE_W_END 1
-#define FILENAME_SIZE 1024
 
 pid_t wpid;
 int status = 0;
@@ -58,14 +55,11 @@ int main(int argc, char const * argv[]){
         }
     }
 
-    int argNumber = 1; //arguemnt #1 is the first file to be hashed
-    char * slaveCurrentFile[FILENAME_SIZE];  //keep track of what file each slave is processing
+    int argNumber = 1; //argument #1 is the first file to be hashed
 
     //send initial files to slaves
     for (int i = 0; i < initialFiles; i++) { 
-        writeToSlave(i%slaveCount, (char *)argv[argNumber]);
-        slaveCurrentFile[i%slaveCount] = (char *)argv[argNumber];
-        argNumber++;
+        writeToSlave(i%slaveCount, (char *)argv[argNumber++]);
     }
     
     //keeps track of how many files have been printed
@@ -89,12 +83,11 @@ int main(int argc, char const * argv[]){
             if(slavePids[j] != -1 && FD_ISSET(masterRead[j], &masterReadSet)){
                 char hashValue[256];
                 readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
-                printf(hashValue);                            //print output of slave that finished task
+                printf("%s", hashValue);                            //print output of slave that finished task
                 printedArgNumber++;
 
                 if (argNumber < argc) {                         //check if theres more files to send
-                    writeToSlave(j, (char *)argv[argNumber]);   //sending next file to slave number j
-                    slaveCurrentFile[j]= (char *) argv[argNumber++];
+                    writeToSlave(j, (char *)argv[argNumber++]);   //sending next file to slave number j
                 }
             }
 
@@ -128,6 +121,11 @@ int calculateSlaves(int fileCount) {
 //returns the total number of files to be initially distributed to the slaves
 int calculateInitialFiles(int fileCount, int slaveCount) {
     int n = ceil(0.1 * (double) fileCount);
+    
+    if (fileCount < slaveCount) {
+        perror("Error: excess number of slaves created");
+        exit(1);
+    }
     if (n < slaveCount) {
         return slaveCount;
     }
@@ -142,10 +140,24 @@ void allocateMem(int slaveCount) {
     masterRead = (int *) malloc(slaveCount * sizeof(int));
     slavePids = (pid_t *) malloc(slaveCount * sizeof(pid_t));
 
+    // check if malloc() succeeded
+    if (slave2master == NULL || master2slave == NULL) {
+        // handle error
+        fprintf(stderr, "Failed to allocate memory\n");
+        exit(1);
+    }
+
     // allocate memory for each sub-array
     for (int i = 0; i < slaveCount; i++) {
         slave2master[i] = (int *) malloc(2 * sizeof(int));
         master2slave[i] = (int *) malloc(2 * sizeof(int));
+
+        // check if malloc() succeeded
+        if (slave2master[i] == NULL || master2slave[i] == NULL) {
+            // handle error
+            fprintf(stderr, "Failed to allocate memory\n");
+            exit(1);
+        }
     }
     return;
 }
