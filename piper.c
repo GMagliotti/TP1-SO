@@ -24,6 +24,7 @@ int main(int argc, char const * argv[]){
     }
 
     const int n = calculateSlaves(argc-1);
+    const int initialFiles = calculateInitialFiles(argc-1, n);
     
     allocateMem(n);                     // reserva la memoria en base a n, la cantidad de slaves
 
@@ -57,8 +58,13 @@ int main(int argc, char const * argv[]){
     int argNumber = 1; //en argumento #1 aparece el primer path a los archivos que quiero
     char * slaveCurrentFile[FILENAME_SIZE];         // me interesa saber que archivo tiene cada slave
 
+    //sem_t *initialSemaphore = sem_open("/initialSemaphore", O_CREAT, S_IRWXU, 0);
+
+
     //envio inicial de archivos a slaves (mando solo 1 archivo, despues cambiar. Afecta a slaveCurrentFile tambien)
     for(int i = 0; i < n; i++){
+        // if(i >= n)
+        //     sem_wait(initialSemaphore);
         writeToSlave(i, (char *)argv[argNumber]);
         slaveCurrentFile[i] = (char *)argv[argNumber];
         argNumber++;
@@ -78,13 +84,14 @@ int main(int argc, char const * argv[]){
             perror("Error in select");
             exit(1);
         }
-            
+
         //encontrar el slave que terminó su tarea
         for(int j=0; j < n; j++){
             if(slavePids[j] != -1 && FD_ISSET(masterRead[j], &masterReadSet)){
                 char hashValue[256];
                 readFinalizedTask(hashValue, masterRead[j]);   //leo el resultado de la tarea que esta terminada
-                printSlave(hashValue, slavePids[j], slaveCurrentFile[j]);   // imprimo el archivo que se termino de procesar
+                printf(hashValue);
+                //printSlave(hashValue, slavePids[j], slaveCurrentFile[j]);   // imprimo el archivo que se termino de procesar
                 printedArgNumber++;
 
                 if (argNumber < argc) {                         // verifica si quedan archivos por mandar
@@ -118,6 +125,14 @@ int calculateSlaves(int fileCount) {
         return fileCount;
     }
     return 5;
+}
+
+int calculateInitialFiles(int fileCount, int slaveCount) {
+    int n = ceil(0.1 * (double) fileCount);
+    if (n < slaveCount) {
+        return slaveCount;
+    }
+    return n;
 }
 
 /* reserva memoria en base a la cantidad de slaves */
@@ -179,6 +194,10 @@ void readFinalizedTask(char * hashValue, int fd) {
         perror("Error read failed");
         exit(1);
     }
+    // if(read(fd, hashValue, 256) == -1){
+    //     perror("Error read failed");
+    //     exit(1);
+    // }
     return;
 }
 

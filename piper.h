@@ -8,8 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <math.h>
 
 int calculateSlaves(int fileCount);
+int calculateInitialFiles(int fileCount, int slaveCount);
 
 void allocateMem(int slaveCount);
 void freeMem(int slaveCount);
