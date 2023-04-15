@@ -17,9 +17,6 @@ int main() {
         if (bytesRead != -1) {
             filePath[bytesRead-1] = '\0';
             processInput(filePath);
-        } else if (bytesRead == 0) {
-            // Do nothing, since there is no input to process
-            exit(0);
         } else {
             perror("Error reading file");
             free(filePath);

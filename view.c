@@ -1,3 +1,5 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -24,7 +26,13 @@ int main(int argc, char * argv[]) {
     // Check whether the shared mem block was received as argument or stdin
     size_t path_maxlen = PATH_MAX_LENGTH;
     size_t file_count;
-    char * shm_path = malloc(PATH_MAX_LENGTH);
+    char * shm_path; 
+    
+    if ((shm_path = malloc(PATH_MAX_LENGTH)) == NULL) {
+        perror("Error allocating memory");
+        exit(1);
+    }
+
     if (argc == 3) {
         strncpy(shm_path, argv[2], PATH_MAX_LENGTH);
         file_count = atoi(argv[1]);
@@ -71,6 +79,8 @@ int main(int argc, char * argv[]) {
     // free the possibly allocated memory for the path
     sem_close(remaining_hashes);
     free(shm_path);
+
+    return 0;
 }
 
 int shm_initialize(void ** mem_pointer, char * name) {

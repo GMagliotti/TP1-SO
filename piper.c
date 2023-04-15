@@ -86,6 +86,9 @@ int main(int argc, char const * argv[]){
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
         //wait until a slave finishes their task
+        int semval;
+        sem_getvalue(mutex, &semval);
+        printf("val de sem: %i\n", semval);
         sem_post(mutex);
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
@@ -99,7 +102,7 @@ int main(int argc, char const * argv[]){
                 char hashValue[256];
                 readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
-                shm_ptr_char += strlen(hashValue);    
+                shm_ptr_char += strlen(hashValue)+1;    
                 sem_post(remaining_hashes);                      
                 printedArgNumber++;
 
@@ -114,11 +117,7 @@ int main(int argc, char const * argv[]){
                 exit(1);
             }  
         }
-        char aDebug[64] = {0};
-        sprintf(aDebug, "\n%d", printedArgNumber);  
-        perror(aDebug);
     }
-    perror("sali!\n");
 
     closeMaster2SlaveWrite(slaveCount);      // close writing pipe of master, slave receives EOF
 
@@ -149,16 +148,18 @@ int calculateSlaves(int fileCount) {
 
 //returns the total number of files to be initially distributed to the slaves
 int calculateInitialFiles(int fileCount, int slaveCount) {
-    int n = ceil(0.1 * (double) fileCount);
+    // int n = ceil(0.1 * (double) fileCount);
     
-    if (fileCount < slaveCount) {
-        perror("Error: excess number of slaves created");
-        exit(1);
-    }
-    if (n < slaveCount) {
-        return slaveCount;
-    }
-    return n;
+    // if (fileCount < slaveCount) {
+    //     perror("Error: excess number of slaves created");
+    //     exit(1);
+    // }
+    // if (n < slaveCount) {
+    //     return slaveCount;
+    // }
+    // return n;
+
+    return slaveCount + 1;
 }
 
 /* reserves memory based on the amount of slaves */
