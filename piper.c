@@ -3,6 +3,9 @@
 #define PIPE_R_END 0
 #define PIPE_W_END 1
 #define MUTEX_SEM_NAME "/semmies"
+#define SHM_NAME "/shmmies"
+#define SHM_SIZE 1048576
+#define HASHES_SEM_NAME "/remaininghashes_sem"
 
 pid_t wpid;
 int status = 0;
@@ -15,6 +18,15 @@ pid_t *slavePids;
 int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0 );
     sem_t * mutex = sem_open(MUTEX_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
+    sem_t * remaining_hashes = sem_open(HASHES_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
+    void * shm_ptr;
+    int shm_fd = shm_initialize(&shm_ptr, SHM_NAME, SHM_SIZE);
+    char * shm_ptr_char = (char *) shm_ptr;
+
+    fprintf(stdout, "%d\n", argc-1);
+    fprintf(stdout, "%s\n", SHM_NAME);
+    fflush(stdout);
+    sleep(3);
 
     char * tests[] = {"tests", NULL };
     char * envs[] = { NULL };
@@ -86,7 +98,9 @@ int main(int argc, char const * argv[]){
             if(slavePids[j] != -1 && FD_ISSET(masterRead[j], &masterReadSet)){
                 char hashValue[256];
                 readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
-                printf("%s", hashValue);                            //print output of slave that finished task
+                sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
+                shm_ptr_char += strlen(hashValue);    
+                sem_post(remaining_hashes);                      
                 printedArgNumber++;
 
                 if (argNumber < argc) {                         //check if theres more files to send
@@ -100,15 +114,23 @@ int main(int argc, char const * argv[]){
                 exit(1);
             }  
         }
+        char aDebug[64] = {0};
+        sprintf(aDebug, "\n%d", printedArgNumber);  
+        perror(aDebug);
     }
+    perror("sali!\n");
 
     closeMaster2SlaveWrite(slaveCount);      // close writing pipe of master, slave receives EOF
 
     freeMem(slaveCount);                     // free reserved memory
 
-    // close and unlink the semaphores
+    // close and unlink the semaphores and shmem
+    shm_uninitialize(shm_ptr, shm_fd, SHM_NAME);
     sem_close(mutex);
+    sem_close(remaining_hashes);
     sem_unlink(MUTEX_SEM_NAME);
+    sem_unlink(HASHES_SEM_NAME);
+
 
     while((wpid = waitpid(-1, &status, 0)) > 0);
 
@@ -239,4 +261,41 @@ void closeMaster2SlaveWrite(int n) {
             exit(1);
         }
     }
+}
+
+int shm_initialize(void ** mem_pointer, char * name, size_t size) {
+    int shm_fd = shm_open(name, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG | S_IRWXO);
+    if (shm_fd < 0) {
+        perror("Shared mem open error");
+        exit(1);
+    }
+
+    if (ftruncate(shm_fd, SHM_SIZE) == -1) {
+        perror("ftruncate failed");
+        exit(1);
+    }
+
+    // Maps the shared memory into the process's available address
+    void * shm_ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm_ptr == MAP_FAILED) {
+        perror("Shared mem mapping failed");
+        exit(1);
+    }
+
+    memset(shm_ptr, 0, SHM_SIZE);
+
+    (*mem_pointer) = shm_ptr;
+    return shm_fd;
+}
+
+void shm_uninitialize(void * ptr, int fd, char * name) {
+    // Unmaps the shared memory
+    if (munmap(ptr, SHM_SIZE) == -1) {
+        perror("munmap failed");
+        exit(1);
+    }
+
+    close(fd);
+
+    shm_unlink(name);
 }

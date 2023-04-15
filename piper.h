@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <math.h>
+#include <sys/mman.h>
 
 int calculateSlaves(int fileCount);
 int calculateInitialFiles(int fileCount, int slaveCount);
@@ -29,4 +30,7 @@ void printSlave( char * hashValue, pid_t slavePid, char * fileName);
 
 void closeMaster2SlaveWrite(int n);
 
+int shm_initialize(void ** mem_pointer, char * name, size_t size);
+
+void shm_uninitialize(void * ptr, int fd, char * name);
 #endif

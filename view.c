@@ -12,23 +12,16 @@
 #include <fcntl.h>
 
 #define FUNCTION_ERROR -1
-#define SHM_NAME "/shm_block"
 #define SHM_SIZE 65536
 #define PATH_MAX_LENGTH 4096
 #define SEM_NAME "/remaininghashes_sem"
+#define NO_OFLAGS 0
 
 int shm_initialize(void **, char *);
 void shm_uninitialize(void *, int);
 
 int main(int argc, char * argv[]) {
-    sleep(1);
     // Check whether the shared mem block was received as argument or stdin
-    sem_t * remaining_hashes = sem_open(SEM_NAME, 0);
-    if (remaining_hashes == SEM_FAILED) {
-        perror("Semafucked opening error");
-        exit(1);
-    }
-
     size_t path_maxlen = PATH_MAX_LENGTH;
     size_t file_count;
     char * shm_path = malloc(PATH_MAX_LENGTH);
@@ -52,6 +45,12 @@ int main(int argc, char * argv[]) {
 
     int offset = 0; 
 
+    sem_t * remaining_hashes = sem_open(SEM_NAME, NO_OFLAGS);
+    if (remaining_hashes == SEM_FAILED) {
+        perror("Semafucked opening error");
+        exit(1);
+    }
+
     for (int i = 0; i < file_count; i++) {
         sem_wait(remaining_hashes);
         printf("%s", (char *)shm_ptr+offset);
@@ -70,6 +69,7 @@ int main(int argc, char * argv[]) {
     shm_uninitialize(shm_ptr, shm_fd);
     // shm_unlink(SHM_NAME);
     // free the possibly allocated memory for the path
+    sem_close(remaining_hashes);
     free(shm_path);
 }
 
