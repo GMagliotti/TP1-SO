@@ -2,6 +2,7 @@
 
 #define PIPE_R_END 0
 #define PIPE_W_END 1
+#define MUTEX_SEM_NAME "/semmies"
 
 pid_t wpid;
 int status = 0;
@@ -13,6 +14,7 @@ pid_t *slavePids;
 
 int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0 );
+    sem_t * mutex = sem_open(MUTEX_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
 
     char * tests[] = {"tests", NULL };
     char * envs[] = { NULL };
@@ -72,6 +74,7 @@ int main(int argc, char const * argv[]){
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
         //wait until a slave finishes their task
+        sem_post(mutex);
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
             perror("Error in select");
@@ -102,6 +105,10 @@ int main(int argc, char const * argv[]){
     closeMaster2SlaveWrite(slaveCount);      // close writing pipe of master, slave receives EOF
 
     freeMem(slaveCount);                     // free reserved memory
+
+    // close and unlink the semaphores
+    sem_close(mutex);
+    sem_unlink(MUTEX_SEM_NAME);
 
     while((wpid = waitpid(-1, &status, 0)) > 0);
 

@@ -2,23 +2,33 @@
 
 #define BUF_SIZE 1024
 #define HASH_MD5_SIZE 32
+#define MUTEX_SEM_NAME "/semmies"
 
 int main() {
-    char filePath[BUF_SIZE];
-    int bytesRead;
 
-    // reads from pipe (master2slave), there may be more than one file read, they are separated by '\n'
-    while ((bytesRead = read(STDIN_FILENO, filePath, BUF_SIZE-1)) > 0) {
-        filePath[bytesRead] = '\0'; // null terminated
-        processInput(filePath);
-    }
+    char *filePath = NULL;
+    size_t len = BUF_SIZE;
+    ssize_t bytesRead;
 
-    if (bytesRead == 0) {
-        exit(0);
-    } else {
-        perror("Error reading file");
-        exit(1);
+    sem_t * mutex = sem_open(MUTEX_SEM_NAME, 0);
+
+    sem_wait(mutex);
+    while((bytesRead = getline(&filePath, &len, stdin)) != -1){
+        if (bytesRead != -1) {
+            filePath[bytesRead-1] = '\0';
+            processInput(filePath);
+        } else if (bytesRead == 0) {
+            // Do nothing, since there is no input to process
+            exit(0);
+        } else {
+            perror("Error reading file");
+            free(filePath);
+            exit(1);
+        }
     }
+    
+    free(filePath);
+    sem_close(mutex);
 
     return 0;
 }
@@ -26,31 +36,18 @@ int main() {
 
 // receives input read in main function, will parse it and send filenames 
 void processInput(char *input) {
-    char token[256] = "";
-    int tokenPos = 0;
-    for (int i = 0; i < strlen(input); i++) {
-        if (input[i] == '\n') {
-            token[tokenPos] = '\0'; // null terminated
+    //recibo fileName en input
+    char hexHash[HASH_MD5_SIZE + 1];
+    calculateHash(hexHash, input);
+    char toWrite[512];
+    generateOut(toWrite, hexHash, input);
             
-            char hexHash[HASH_MD5_SIZE + 1];
-            calculateHash(hexHash, token);
-            char toWrite[BUF_SIZE * 4];
-            generateOut(toWrite, hexHash, token);
-            
-            //writes to stdout
-            if (write(STDOUT_FILENO, toWrite, strlen(toWrite)+1) < 0) {
-                printf("Error: Could not write hash to stdout\n");
-                exit(1);
-            }
-
-            // reset token
-            memset(token, 0, sizeof(token));
-            tokenPos = 0;
-        } else {
-            //copy each char to token
-            token[tokenPos++] = input[i];
-        }
+    //writes to stdout
+    if (write(STDOUT_FILENO, toWrite, strlen(toWrite)+1) < 0) {
+        printf("Error: Could not write hash to stdout\n");
+        exit(1);
     }
+
 }
 
 
