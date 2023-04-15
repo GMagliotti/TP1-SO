@@ -99,7 +99,7 @@ int main(int argc, char const * argv[]){
                 char hashValue[256];
                 readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
-                shm_ptr_char += strlen(hashValue);    
+                shm_ptr_char += strlen(hashValue) + 1;    
                 sem_post(remaining_hashes);                      
                 printedArgNumber++;
 
@@ -114,9 +114,6 @@ int main(int argc, char const * argv[]){
                 exit(1);
             }  
         }
-        char aDebug[64] = {0};
-        sprintf(aDebug, "\n%d", printedArgNumber);  
-        perror(aDebug);
     }
     perror("sali!\n");
 
