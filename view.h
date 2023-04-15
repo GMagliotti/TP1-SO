@@ -14,7 +14,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-int shm_initialize(void **, char *);
+int shm_map(void **, char *);
 void shm_uninitialize(void *, int);
 
 #endif
