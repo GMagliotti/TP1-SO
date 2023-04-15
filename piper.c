@@ -26,6 +26,14 @@ int main(int argc, char const * argv[]){
     fprintf(stdout, "%d\n", argc-1);
     fprintf(stdout, "%s\n", SHM_NAME);
     fflush(stdout);
+
+    FILE *file = fopen("resultado", "a");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        perror("fopen");
+        exit(1);
+    }
+    
     sleep(3);
 
     char * tests[] = {"tests", NULL };
@@ -86,9 +94,6 @@ int main(int argc, char const * argv[]){
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
         //wait until a slave finishes their task
-        int semval;
-        sem_getvalue(mutex, &semval);
-        printf("val de sem: %i\n", semval);
         sem_post(mutex);
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
@@ -103,6 +108,7 @@ int main(int argc, char const * argv[]){
                 readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
                 shm_ptr_char += strlen(hashValue) + 1;    
+                writeToFile(file, hashValue);
                 sem_post(remaining_hashes);                      
                 printedArgNumber++;
 
@@ -126,10 +132,11 @@ int main(int argc, char const * argv[]){
     // close and unlink the semaphores and shmem
     shm_uninitialize(shm_ptr, shm_fd, SHM_NAME);
     sem_close(mutex);
-    sem_close(remaining_hashes);
     sem_unlink(MUTEX_SEM_NAME);
+    sem_close(remaining_hashes);
     sem_unlink(HASHES_SEM_NAME);
 
+    closeFile(file);
 
     while((wpid = waitpid(-1, &status, 0)) > 0);
 
@@ -148,18 +155,16 @@ int calculateSlaves(int fileCount) {
 
 //returns the total number of files to be initially distributed to the slaves
 int calculateInitialFiles(int fileCount, int slaveCount) {
-    // int n = ceil(0.1 * (double) fileCount);
+    int n = ceil(0.1 * (double) fileCount);
     
-    // if (fileCount < slaveCount) {
-    //     perror("Error: excess number of slaves created");
-    //     exit(1);
-    // }
-    // if (n < slaveCount) {
-    //     return slaveCount;
-    // }
-    // return n;
-
-    return slaveCount + 1;
+    if (fileCount < slaveCount) {
+        perror("Error: excess number of slaves created");
+        exit(1);
+    }
+    if (n < slaveCount) {
+        return slaveCount;
+    }
+    return n;
 }
 
 /* reserves memory based on the amount of slaves */
@@ -299,4 +304,22 @@ void shm_uninitialize(void * ptr, int fd, char * name) {
     close(fd);
 
     shm_unlink(name);
+}
+
+/* appends stringToAppend to file "file" */
+void writeToFile(FILE * file, char * stringToAppend) {
+    if (fprintf(file, "%s", stringToAppend) < 0) {
+        printf("Error writing to file\n");
+        perror("Error writing to file on fprintf");
+        exit(1);
+    }
+}
+
+/* closes file "file" */
+void closeFile(FILE * file) {
+    if (fclose(file) != 0) {
+        printf("Error closing file!\n");
+        perror("fclose");
+        exit(1);
+    }
 }

@@ -31,6 +31,9 @@ void printSlave( char * hashValue, pid_t slavePid, char * fileName);
 void closeMaster2SlaveWrite(int n);
 
 int shm_initialize(void ** mem_pointer, char * name, size_t size);
-
 void shm_uninitialize(void * ptr, int fd, char * name);
+
+void writeToFile(FILE * file, char * stringToAppend);
+void closeFile(FILE * file);
+
 #endif
