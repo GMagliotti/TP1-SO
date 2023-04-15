@@ -86,9 +86,9 @@ int main(int argc, char const * argv[]){
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
         //wait until a slave finishes their task
-        int semval;
-        sem_getvalue(mutex, &semval);
-        printf("val de sem: %i\n", semval);
+        //int semval;
+        //sem_getvalue(mutex, &semval);
+        //printf("val de sem: %i\n", semval);
         sem_post(mutex);
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
