@@ -102,7 +102,7 @@ int main(int argc, char const * argv[]){
                 char hashValue[256];
                 readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
-                shm_ptr_char += strlen(hashValue)+1;    
+                shm_ptr_char += strlen(hashValue) + 1;    
                 sem_post(remaining_hashes);                      
                 printedArgNumber++;
 
