@@ -1,26 +1,10 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <semaphore.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include "view.h"
 
 #define FUNCTION_ERROR -1
 #define SHM_SIZE 65536
 #define PATH_MAX_LENGTH 4096
 #define SEM_NAME "/remaininghashes_sem"
 #define NO_OFLAGS 0
-
-int shm_initialize(void **, char *);
-void shm_uninitialize(void *, int);
 
 int main(int argc, char * argv[]) {
     // Check whether the shared mem block was received as argument or stdin
