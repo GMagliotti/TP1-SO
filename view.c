@@ -30,7 +30,7 @@ int main(int argc, char * argv[]) {
     }
 
     void * shm_ptr = NULL;
-    int shm_fd = shm_initialize(&shm_ptr, shm_path);
+    int shm_fd = shm_map(&shm_ptr, shm_path);
 
     int offset = 0; 
 

@@ -11,9 +11,9 @@ int main() {
     ssize_t bytesRead;
 
     sem_t * mutex = sem_open(MUTEX_SEM_NAME, 0);
-
-    sem_wait(mutex);
+    
     while((bytesRead = getline(&filePath, &len, stdin)) != -1){
+        sem_wait(mutex);
         if (bytesRead != -1) {
             filePath[bytesRead-1] = '\0';
             processInput(filePath);
