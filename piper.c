@@ -93,7 +93,6 @@ int main(int argc, char const * argv[]){
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
 
-        sleep(1);       // DEBUGGING
 
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
@@ -145,20 +144,36 @@ int main(int argc, char const * argv[]){
 
 /* returns amount of slaves to be used */
 int calculateSlaves(int fileCount) {
-    if (fileCount < 5) {
+    //calculating 5% of the total amount of files
+    int n = ceil(0.05 * (double) fileCount);
+
+    //if there are less than 5 files, there will be the same amount of slaves as files
+    if(fileCount < 5)
         return fileCount;
-    }
-    return 5;
+
+    //case: more than (or =) 5 files, but 5% is less than 5 -> use floor number of 5 slaves
+    if(n < 5)
+        return 5;
+
+    //case: 5% is more than 10 -> use ceiling number of 10 slaves
+    if(n > 10)
+        return 10;
+    
+    //else, use 5% of the fileCount as slaves
+    return n;
 }
 
 //returns the total number of files to be initially distributed to the slaves
 int calculateInitialFiles(int fileCount, int slaveCount) {
+    // 10% of the files are initially distributed to the slaves
     int n = ceil(0.1 * (double) fileCount);
     
+    // if there are less files than slaves, there was an excess of slaves created
     if (fileCount < slaveCount) {
         perror("Error: excess number of slaves created");
         exit(1);
     }
+    //if 10% of the files is less than the number of slaves, then all the slaves are initially distributed one file
     if (n < slaveCount) {
         return slaveCount;
     }

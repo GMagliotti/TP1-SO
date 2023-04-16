@@ -36,7 +36,7 @@ int main(int argc, char * argv[]) {
 
     sem_t * remaining_hashes = sem_open(SEM_NAME, NO_OFLAGS);
     if (remaining_hashes == SEM_FAILED) {
-        perror("Semafucked opening error");
+        perror("Semafricked opening error");
         exit(1);
     }
 
