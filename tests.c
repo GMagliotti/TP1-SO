@@ -13,7 +13,6 @@ int main() {
     sem_t * mutex = sem_open(MUTEX_SEM_NAME, 0);
     
     while((bytesRead = getline(&filePath, &len, stdin)) != -1){
-        sem_wait(mutex);
         if (bytesRead != -1) {
             filePath[bytesRead-1] = '\0';
             processInput(filePath);
@@ -38,10 +37,10 @@ void processInput(char *input) {
     calculateHash(hexHash, input);
     char toWrite[512];
     generateOut(toWrite, hexHash, input);
-            
+
     //writes to stdout
-    if (write(STDOUT_FILENO, toWrite, strlen(toWrite)+1) < 0) {
-        printf("Error: Could not write hash to stdout\n");
+    if (write(STDOUT_FILENO, toWrite, strlen(toWrite)) < 0) {
+        perror("Error - Could not write hash to stdout\n");
         exit(1);
     }
 

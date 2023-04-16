@@ -17,7 +17,6 @@ pid_t *slavePids;
 
 int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0 );
-    sem_t * mutex = sem_open(MUTEX_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
     sem_t * remaining_hashes = sem_open(HASHES_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
     void * shm_ptr;
     int shm_fd = shm_initialize(&shm_ptr, SHM_NAME, SHM_SIZE);
@@ -93,8 +92,9 @@ int main(int argc, char const * argv[]){
         for (int i = 0; i < slaveCount; i++) {
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
-        //wait until a slave finishes their task
-        sem_post(mutex);
+
+        sleep(1);       // DEBUGGING
+
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
             perror("Error in select");
@@ -105,12 +105,12 @@ int main(int argc, char const * argv[]){
         for(int j=0; j < slaveCount; j++){
             if(slavePids[j] != -1 && FD_ISSET(masterRead[j], &masterReadSet)){
                 char hashValue[256];
-                readFinalizedTask(hashValue, masterRead[j]);   //read output of slave that finished task
+                int finalizedTasks = readFinalizedTasks(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
                 shm_ptr_char += strlen(hashValue) + 1;    
                 writeToFile(file, hashValue);
-                sem_post(remaining_hashes);                      
-                printedArgNumber++;
+                for (int i = 0; i < finalizedTasks; i++) sem_post(remaining_hashes);                      
+                printedArgNumber += finalizedTasks;
 
                 if (argNumber < argc) {                         //check if theres more files to send
                     writeToSlave(j, (char *)argv[argNumber++]);   //sending next file to slave number j
@@ -131,8 +131,6 @@ int main(int argc, char const * argv[]){
 
     // close and unlink the semaphores and shmem
     shm_uninitialize(shm_ptr, shm_fd, SHM_NAME);
-    sem_close(mutex);
-    sem_unlink(MUTEX_SEM_NAME);
     sem_close(remaining_hashes);
     sem_unlink(HASHES_SEM_NAME);
 
@@ -235,12 +233,24 @@ void closePipes(int n) {
 }
 
 /* reads from the specified fd, leaves value in hashValue*/
-void readFinalizedTask(char * hashValue, int fd) {
-    if(read(fd, hashValue, 256) == -1){
+int readFinalizedTasks(char * hashValue, int fd) {
+    int bytesRead = 0;
+    if((bytesRead = read(fd, hashValue, 512)) == -1){
         perror("Error read failed");
         exit(1);
     }
-    return;
+
+    hashValue[bytesRead]= '\0';
+
+    int readHashes = 0;
+
+    for (int i = 0 ; i < bytesRead ; i++) {
+        if(hashValue[i] == '\n') {
+            readHashes++;
+        }
+    }
+
+    return readHashes;
 }
 
 /* sends the corresponding slave the path to the file it must hash */

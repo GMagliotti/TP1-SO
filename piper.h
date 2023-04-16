@@ -23,7 +23,7 @@ void freeMem(int slaveCount);
 void setPipes(int n);
 void closePipes(int n);
 
-void readFinalizedTask(char * hashValue, int fd);
+int readFinalizedTasks(char * hashValue, int fd);
 void writeToSlave(int slaveNum, char * filePath);
 
 void printSlave( char * hashValue, pid_t slavePid, char * fileName);
