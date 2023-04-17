@@ -17,15 +17,17 @@ pid_t *slavePids;
 
 int main(int argc, char const * argv[]){
     setvbuf(stdout, NULL, _IONBF, 0 );
-    sem_t * remaining_hashes = sem_open(HASHES_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
-    void * shm_ptr;
-    int shm_fd = shm_initialize(&shm_ptr, SHM_NAME, SHM_SIZE);
-    char * shm_ptr_char = (char *) shm_ptr;
+    sem_t * remaining_hashes = sem_open(HASHES_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0); //semaphore to keep track of the remaining hashes to be printed
+    void * shm_ptr; //pointer to the shared memory block
+    int shm_fd = shm_initialize(&shm_ptr, SHM_NAME, SHM_SIZE); //initializes the shared memory block
+    char * shm_ptr_char = (char *) shm_ptr; //keeps track of the current position in the shared memory block
 
+    //printing of the number of files to be hashed and the name of the shared memory block (for view process)
     fprintf(stdout, "%d\n", argc-1);
     fprintf(stdout, "%s\n", SHM_NAME);
-    fflush(stdout);
+    fflush(stdout); //forces the output to be written to the pipe
 
+    //creation of the file where the hash outputs will be written
     FILE *file = fopen("resultado", "a");
     if (file == NULL) {
         printf("Error opening file!\n");
@@ -33,7 +35,7 @@ int main(int argc, char const * argv[]){
         exit(1);
     }
     
-    sleep(3);
+    sleep(3); //waiting for view to be executed (if it is executed at all)
 
     char * tests[] = {"tests", NULL };
     char * envs[] = { NULL };
@@ -43,6 +45,7 @@ int main(int argc, char const * argv[]){
         return 1;
     }
 
+    //calculate and save number of slaves to be used and initial files to be sent
     const int slaveCount = calculateSlaves(argc-1);
     const int initialFiles = calculateInitialFiles(argc-1, slaveCount);
     
@@ -69,13 +72,16 @@ int main(int argc, char const * argv[]){
         }
     }
 
-    // cerrar el ???
+    /*closing of fd's of pipes for the master process: 
+        close read end of the master2slave pipe (master will only write)
+        close write end of slave2master pipe (master will only read) */
     for (int i = 0; i < slaveCount ; i++) {
         if (close(master2slave[i][PIPE_R_END]) == -1 || close(slave2master[i][PIPE_W_END]) == -1) {
             perror("Error cerrando pipes");
         }
     }
 
+    //keeps track of what file is being sent to the slaves
     int argNumber = 1; //argument #1 is the first file to be hashed
 
     //send initial files to slaves
@@ -86,30 +92,33 @@ int main(int argc, char const * argv[]){
     //keeps track of how many files have been printed
     int printedArgNumber = 0;
 
+    //loop that finishes when all files have been sent & their hashes printed
     while(printedArgNumber != argNumber - 1){  
+        //fd set that will be used in select to indicate which slaves finished their tasks
         fd_set masterReadSet;
         FD_ZERO(&masterReadSet); //empty the fd set
         for (int i = 0; i < slaveCount; i++) {
             FD_SET(masterRead[i], &masterReadSet); //add fd's of pipes to the set
         }
 
-
+        //select waits for slave(s) to finish their task(s)
         int selectRet = select(masterRead[slaveCount-1] + 1, &masterReadSet, NULL, NULL, NULL);
         if (selectRet == -1) {
             perror("Error in select");
             exit(1);
         }
 
-        //find slave that finished their task, print their output
+        //find slave that finished their task, write their output in shmem, and send them the next file
         for(int j=0; j < slaveCount; j++){
+            //if slave j finished their task:
             if(slavePids[j] != -1 && FD_ISSET(masterRead[j], &masterReadSet)){
                 char hashValue[256];
                 int finalizedTasks = readFinalizedTasks(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
-                shm_ptr_char += strlen(hashValue) + 1;    
-                writeToFile(file, hashValue);
-                for (int i = 0; i < finalizedTasks; i++) sem_post(remaining_hashes);                      
-                printedArgNumber += finalizedTasks;
+                shm_ptr_char += strlen(hashValue) + 1;   //updates pointer to shmem
+                writeToFile(file, hashValue);   //writes output of slave that finished task to file
+                for (int i = 0; i < finalizedTasks; i++) sem_post(remaining_hashes);  //increments semaphore for each task that was finalized                    
+                printedArgNumber += finalizedTasks; //updates number of files that have been printed
 
                 if (argNumber < argc) {                         //check if theres more files to send
                     writeToSlave(j, (char *)argv[argNumber++]);   //sending next file to slave number j
@@ -133,11 +142,9 @@ int main(int argc, char const * argv[]){
     sem_close(remaining_hashes);
     sem_unlink(HASHES_SEM_NAME);
 
-    closeFile(file);
+    closeFile(file); //close file
 
-    while((wpid = waitpid(-1, &status, 0)) > 0);
-
-    printf("Bofadeez + pid: %i\n", getpid());
+    while((wpid = waitpid(-1, &status, 0)) > 0); //wait for all slave processes to finish
 
     return 0;
 }
@@ -163,7 +170,7 @@ int calculateSlaves(int fileCount) {
     return n;
 }
 
-//returns the total number of files to be initially distributed to the slaves
+/* returns the total number of files to be initially distributed to the slaves */
 int calculateInitialFiles(int fileCount, int slaveCount) {
     // 10% of the files are initially distributed to the slaves
     int n = ceil(0.1 * (double) fileCount);
@@ -182,7 +189,7 @@ int calculateInitialFiles(int fileCount, int slaveCount) {
 
 /* reserves memory based on the amount of slaves */
 void allocateMem(int slaveCount) {
-    // allocate memory for arrays
+    // allocate memory for arrays of file descriptors
     slave2master = (int **) malloc(slaveCount * sizeof(int *));
     master2slave = (int **) malloc(slaveCount * sizeof(int *));
     masterRead = (int *) malloc(slaveCount * sizeof(int));
@@ -210,7 +217,7 @@ void allocateMem(int slaveCount) {
     return;
 }
 
-/* frees dinamic memory used */
+/* frees dynamic memory used */
 void freeMem(int slaveCount) {
     // free memory when done
     for (int i = 0; i < slaveCount; i++) {
@@ -247,7 +254,7 @@ void closePipes(int n) {
     }
 }
 
-/* reads from the specified fd, leaves value in hashValue*/
+/* reads from the specified fd, leaves value in hashValue. Returns number of hashes read */
 int readFinalizedTasks(char * hashValue, int fd) {
     int bytesRead = 0;
     if((bytesRead = read(fd, hashValue, 512)) == -1){
@@ -255,7 +262,7 @@ int readFinalizedTasks(char * hashValue, int fd) {
         exit(1);
     }
 
-    hashValue[bytesRead]= '\0';
+    hashValue[bytesRead]= '\0'; //null terminator
 
     int readHashes = 0;
 
@@ -271,17 +278,11 @@ int readFinalizedTasks(char * hashValue, int fd) {
 /* sends the corresponding slave the path to the file it must hash */
 void writeToSlave(int slaveNum, char * filePath) {
     char toRet [256];
-    sprintf(toRet, "%s%s", filePath, "\n");
+    sprintf(toRet, "%s%s", filePath, "\n"); //adding newline to the end of the string
     if (write(master2slave[slaveNum][PIPE_W_END], toRet, strlen(toRet)) == -1) {
         perror("Error: write failed");
         exit(1);
     }
-}
-
-/* prints slave output */
-void printSlave( char * hashValue, pid_t slavePid, char * fileName) {
-    printf("Hash value: %s del slave (PID): %i que recibio el archivo: %s\n", hashValue, slavePid, fileName);
-    return;
 }
 
 /* closes master's writing pipes, sending EOF */
@@ -294,41 +295,46 @@ void closeMaster2SlaveWrite(int n) {
     }
 }
 
+/* initialized shared memory */
 int shm_initialize(void ** mem_pointer, char * name, size_t size) {
+    //open the shared memory
     int shm_fd = shm_open(name, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG | S_IRWXO);
     if (shm_fd < 0) {
         perror("Shared mem open error");
         exit(1);
     }
 
+    //resizes the shared memory object
     if (ftruncate(shm_fd, SHM_SIZE) == -1) {
         perror("ftruncate failed");
         exit(1);
     }
 
-    // Maps the shared memory into the process's available address
+    //maps the shared memory into the process's available address
     void * shm_ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (shm_ptr == MAP_FAILED) {
         perror("Shared mem mapping failed");
         exit(1);
     }
 
+    //clears the shared memory
     memset(shm_ptr, 0, SHM_SIZE);
 
     (*mem_pointer) = shm_ptr;
     return shm_fd;
 }
 
+/* uninitializes the shared memory */
 void shm_uninitialize(void * ptr, int fd, char * name) {
-    // Unmaps the shared memory
+    //unmaps the shared memory
     if (munmap(ptr, SHM_SIZE) == -1) {
         perror("munmap failed");
         exit(1);
     }
 
-    close(fd);
+    close(fd); //closes the file descriptor
 
-    shm_unlink(name);
+    shm_unlink(name); //unlinks the shared memory
 }
 
 /* appends stringToAppend to file "file" */
