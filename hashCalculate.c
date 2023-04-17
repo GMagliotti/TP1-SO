@@ -93,7 +93,13 @@ void generateOut(char * toWrite, char * hexHash, char * token) {
     sprintf(pidString, "%d", getpid()); //stores pid in string pidString
     
     //extracts file name from path
-    char * fileName = strrchr(token, '/') + 1; 
+    
+    char * fileName = NULL;
+    if ((fileName = strrchr(token, '/')) == NULL) {
+        perror("Invalid file path; could not find /");
+        exit(1);
+    }
+    fileName += 1;                      // skips the last '/', resulting in a pointer to the fileName
 
     //concatenates all relevant information to write to stdout
     sprintf(toWrite, "Hash value: %s from slave (PID): %s of the file: %s\n",
