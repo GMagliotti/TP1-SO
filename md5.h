@@ -22,6 +22,8 @@ void printForVista(int fileCount, char * shmName, char * semName);
 void allocateMem(int slaveCount);
 void freeMem(int slaveCount);
 
+void createSlaves(int slaveCount);
+
 void setPipes(int n);
 void closePipes(int n);
 
