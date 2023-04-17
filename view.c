@@ -3,38 +3,44 @@
 #define FUNCTION_ERROR -1
 #define SHM_SIZE 65536
 #define PATH_MAX_LENGTH 4096
-#define SEM_NAME "/remaininghashes_sem"
 #define NO_OFLAGS 0
 
 int main(int argc, char * argv[]) {
     // Check whether the shared mem block was received as argument or stdin
     size_t path_maxlen = PATH_MAX_LENGTH;
     size_t file_count;
-    char * shm_path; 
+    char * shm_name, * sem_name; 
     
-    if ((shm_path = malloc(PATH_MAX_LENGTH)) == NULL) {
+    if ((shm_name = malloc(PATH_MAX_LENGTH)) == NULL) {
+        perror("Error allocating memory");
+        exit(1);
+    }
+    if ((sem_name = malloc(PATH_MAX_LENGTH)) == NULL) {
         perror("Error allocating memory");
         exit(1);
     }
 
-    if (argc == 3) {
-        strncpy(shm_path, argv[2], PATH_MAX_LENGTH);
+    if (argc == 4) {
+        strncpy(sem_name, argv[3], PATH_MAX_LENGTH);
+        strncpy(shm_name, argv[2], PATH_MAX_LENGTH);
         file_count = atoi(argv[1]);
     } else {
         char * tempstr = NULL;
         size_t maxnum = 10;
         getline(&tempstr, &maxnum, stdin);
         file_count = atoi(tempstr);
-        ssize_t bytes_read = getline(&shm_path, &path_maxlen, stdin);
-        shm_path[bytes_read-1] = '\0';
+        ssize_t bytes_read = getline(&shm_name, &path_maxlen, stdin);
+        shm_name[bytes_read-1] = '\0';
+        bytes_read = getline(&sem_name, &path_maxlen, stdin);
+        sem_name[bytes_read] = '\0';
     }
 
     void * shm_ptr = NULL;
-    int shm_fd = shm_map(&shm_ptr, shm_path);
+    int shm_fd = shm_map(&shm_ptr, shm_name);
 
     int offset = 0; 
 
-    sem_t * remaining_hashes = sem_open(SEM_NAME, NO_OFLAGS);
+    sem_t * remaining_hashes = sem_open(sem_name, NO_OFLAGS);
     if (remaining_hashes == SEM_FAILED) {
         perror("Semafricked opening error");
         exit(1);
@@ -48,7 +54,8 @@ int main(int argc, char * argv[]) {
 
     shm_uninitialize(shm_ptr, shm_fd);
     sem_close(remaining_hashes);
-    free(shm_path);
+    free(shm_name);
+    free(sem_name);
 
     return 0;
 }
