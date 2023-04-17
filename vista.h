@@ -1,5 +1,5 @@
-#ifndef VIEW_H
-#define VIEW_H
+#ifndef VISTA_H
+#define VISTA_H
 
 #define  _GNU_SOURCE
 #include <stdio.h>

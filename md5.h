@@ -1,5 +1,5 @@
-#ifndef PIPER_H
-#define PIPER_H
+#ifndef MD5_H
+#define MD5_H
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -16,6 +16,8 @@
 
 int calculateSlaves(int fileCount);
 int calculateInitialFiles(int fileCount, int slaveCount);
+
+void printForVista(int fileCount, char * shmName, char * semName);
 
 void allocateMem(int slaveCount);
 void freeMem(int slaveCount);

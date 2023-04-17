@@ -1,8 +1,7 @@
-#include "piper.h"
+#include "md5.h"
 
 #define PIPE_R_END 0
 #define PIPE_W_END 1
-#define MUTEX_SEM_NAME "/semmies"
 #define SHM_NAME "/shmmies"
 #define SHM_SIZE 1048576
 #define HASHES_SEM_NAME "/remaininghashes_sem"
@@ -22,15 +21,12 @@ int main(int argc, char const * argv[]){
     int shm_fd = shm_initialize(&shm_ptr, SHM_NAME, SHM_SIZE); //initializes the shared memory block
     char * shm_ptr_char = (char *) shm_ptr; //keeps track of the current position in the shared memory block
 
-    //printing of the number of files to be hashed and the name of the shared memory block (for view process)
-    fprintf(stdout, "%d\n", argc-1);
-    fprintf(stdout, "%s\n", SHM_NAME);
-    fprintf(stdout, "%s\n", HASHES_SEM_NAME);
-    fflush(stdout); //forces the output to be written to the pipe
+    //printing of the number of files to be hashed, the name of the shared memory block (for view process) and the shm semaphor name
+    printForVista(argc-1, SHM_NAME, HASHES_SEM_NAME);
 
     //creation of the file where the hash outputs will be written
-    FILE *file = fopen("resultado", "a");
-    if (file == NULL) {
+    FILE *fileOutput = fopen("resultado", "a");
+    if (fileOutput == NULL) {
         printf("Error opening file!\n");
         perror("fopen");
         exit(1);
@@ -38,8 +34,8 @@ int main(int argc, char const * argv[]){
     
     sleep(3); //waiting for view to be executed (if it is executed at all)
 
-    char * tests[] = {"tests", NULL };
-    char * envs[] = { NULL };
+    char * hashC[] = {"hashCalculate", NULL };
+    char * envC[] = { NULL };
 
     if (argc < 2) {                     // if no files are sent to be hashed
         printf("Usage: %s file1 file2 ... fileN\n", argv[0]);
@@ -66,14 +62,14 @@ int main(int argc, char const * argv[]){
             closePipes(slaveCount);
 
             //run the slaves
-            execve("tests", tests, envs);
+            execve(hashC[0], hashC, envC);
         } else if (slavePids[i] == -1){
             perror("Error creando slave");
             exit(1);
         }
     }
 
-    /*closing of fd's of pipes for the master process: 
+    /*  closing of fd's of pipes for the master process: 
         close read end of the master2slave pipe (master will only write)
         close write end of slave2master pipe (master will only read) */
     for (int i = 0; i < slaveCount ; i++) {
@@ -117,7 +113,7 @@ int main(int argc, char const * argv[]){
                 int finalizedTasks = readFinalizedTasks(hashValue, masterRead[j]);   //read output of slave that finished task
                 sprintf(shm_ptr_char, "%s", hashValue);     //writes output of slave that finished task to shmem
                 shm_ptr_char += strlen(hashValue) + 1;   //updates pointer to shmem
-                writeToFile(file, hashValue);   //writes output of slave that finished task to file
+                writeToFile(fileOutput, hashValue);   //writes output of slave that finished task to file
                 for (int i = 0; i < finalizedTasks; i++) sem_post(remaining_hashes);  //increments semaphore for each task that was finalized                    
                 printedArgNumber += finalizedTasks; //updates number of files that have been printed
 
@@ -125,12 +121,6 @@ int main(int argc, char const * argv[]){
                     writeToSlave(j, (char *)argv[argNumber++]);   //sending next file to slave number j
                 }
             }
-
-            // nunca paso esto, TO DO formalizar
-            if(argNumber > argc){
-                printf("me llego mas de uno\n");
-                exit(1);
-            }  
         }
     }
 
@@ -143,7 +133,7 @@ int main(int argc, char const * argv[]){
     sem_close(remaining_hashes);
     sem_unlink(HASHES_SEM_NAME);
 
-    closeFile(file); //close file
+    closeFile(fileOutput); //close file
 
     while((wpid = waitpid(-1, &status, 0)) > 0); //wait for all slave processes to finish
 
@@ -186,6 +176,14 @@ int calculateInitialFiles(int fileCount, int slaveCount) {
         return slaveCount;
     }
     return n;
+}
+
+/* printf the neccesary information for the view process on the stdout */
+void printForVista(int fileCount, char * shmName, char * semName) {
+    fprintf(stdout, "%d\n", fileCount);
+    fprintf(stdout, "%s\n", shmName);
+    fprintf(stdout, "%s\n", semName);
+    fflush(stdout); //forces the output to be written to the pipe
 }
 
 /* reserves memory based on the amount of slaves */

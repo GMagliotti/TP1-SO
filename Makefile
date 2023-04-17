@@ -1,15 +1,15 @@
-all: piper tests view
+all: md5 hashCalculate vista
 
-view: view.c
-	gcc -Wall $< -o $@ -std=c99 -lm -lrt -pthread -g
-
-piper: piper.c
+md5: md5.c
 	gcc -Wall $< -o $@ -std=c99 -lm -lrt -pthread -g -D_XOPEN_SOURCE=500
 
-tests: tests.c
+hashCalculate: hashCalculate.c
+	gcc -Wall $< -o $@ -std=c99 -lm -lrt -pthread -g
+
+vista: vista.c
 	gcc -Wall $< -o $@ -std=c99 -lm -lrt -pthread -g
 
 clean:
-	rm -f piper tests view
+	rm -f md5 hashCalculate vista
 
 .PHONY: all clean

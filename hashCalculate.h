@@ -1,5 +1,5 @@
-#ifndef TESTS_H
-#define TESTS_H
+#ifndef HASHCALCULATE_H
+#define HASHCALCULATE_H
 
 #define  _GNU_SOURCE
 #include <stdio.h>

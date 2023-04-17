@@ -1,4 +1,4 @@
-#include "tests.h"
+#include "hashCalculate.h"
 
 #define BUF_SIZE 1024
 #define HASH_MD5_SIZE 32
