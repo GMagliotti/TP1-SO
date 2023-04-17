@@ -2,12 +2,7 @@
 
 #define PIPE_R_END 0
 #define PIPE_W_END 1
-#define SHM_NAME "/shmmies"
 #define SHM_SIZE 1048576
-#define HASHES_SEM_NAME "/remaininghashes_sem"
-
-pid_t wpid;
-int status = 0;
 
 int **slave2master;
 int **master2slave;
@@ -15,19 +10,32 @@ int *masterRead;
 pid_t *slavePids;
 
 int main(int argc, char const * argv[]){
-    // Unlink any possible remainder semaphores and shared memory from a 
-    // prematurely terminated previous execution
-    shm_unlink(SHM_NAME);
-    sem_unlink(HASHES_SEM_NAME);
 
     setvbuf(stdout, NULL, _IONBF, 0 );
-    sem_t * remaining_hashes = sem_open(HASHES_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0); //semaphore to keep track of the remaining hashes to be printed
+
+    if (argc < 2) {                     // if no files are sent to be hashed
+        printf("Usage: %s file1 file2 ... fileN\n", argv[0]);
+        return 1;
+    }
+    
+    char * shm_name = "/shm_buffer";
+    char * hashes_sem_name = "/remaininghashes_sem";
+
+    // Unlink any possible remainder semaphores and shared memory from a 
+    // prematurely terminated previous execution
+    shm_unlink(shm_name);
+    sem_unlink(hashes_sem_name);
+
+    sem_t * remaining_hashes = sem_open(hashes_sem_name, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0); //semaphore to keep track of the remaining hashes to be printed
     void * shm_ptr; //pointer to the shared memory block
-    int shm_fd = shm_initialize(&shm_ptr, SHM_NAME, SHM_SIZE); //initializes the shared memory block
+    int shm_fd = shm_initialize(&shm_ptr, shm_name, SHM_SIZE); //initializes the shared memory block
     char * shm_ptr_char = (char *) shm_ptr; //keeps track of the current position in the shared memory block
 
+    pid_t wpid;
+    int status = 0;
+
     //printing of the number of files to be hashed, the name of the shared memory block (for view process) and the shm semaphor name
-    printForVista(argc-1, SHM_NAME, HASHES_SEM_NAME);
+    printForVista(argc-1, shm_name, hashes_sem_name);
 
     //creation of the file where the hash outputs will be written
     FILE *fileOutput = fopen("resultado", "a");
@@ -39,40 +47,15 @@ int main(int argc, char const * argv[]){
     
     sleep(3); //waiting for view to be executed (if it is executed at all)
 
-    char * hashC[] = {"hashCalculate", NULL };
-    char * envC[] = { NULL };
-
-    if (argc < 2) {                     // if no files are sent to be hashed
-        printf("Usage: %s file1 file2 ... fileN\n", argv[0]);
-        return 1;
-    }
-
     //calculate and save number of slaves to be used and initial files to be sent
     const int slaveCount = calculateSlaves(argc-1);
     const int initialFiles = calculateInitialFiles(argc-1, slaveCount);
     
-    allocateMem(slaveCount);                     // allocates memory based on the amount of slaves
+    allocateMem(slaveCount);                    // allocates memory based on the amount of slaves
 
-    setPipes(slaveCount);                        // creates the 2 * (slaveCount) pipes that will communicate master - slave
+    setPipes(slaveCount);                       // creates the 2 * (slaveCount) pipes that will communicate master - slave
 
-    //creation of slaveCount amount of slaves (fork)
-    for(int i = 0; i < slaveCount; i++){
-        slavePids[i] = fork();
-        if(slavePids[i] == 0){
-            //SLAVE number i
-            dup2(master2slave[i][PIPE_R_END], 0); //replace stdin with read from master2slave pipe
-            dup2(slave2master[i][PIPE_W_END], 1); //replace stdout with write from slave2master pipe
-            
-            //closing of fd's of pipes for the slave processes
-            closePipes(slaveCount);
-
-            //run the slaves
-            execve(hashC[0], hashC, envC);
-        } else if (slavePids[i] == -1){
-            perror("Error creando slave");
-            exit(1);
-        }
-    }
+    createSlaves(slaveCount);                   // creates the slaves, using the previously set pipes
 
     /*  closing of fd's of pipes for the master process: 
         close read end of the master2slave pipe (master will only write)
@@ -134,9 +117,9 @@ int main(int argc, char const * argv[]){
     freeMem(slaveCount);                     // free reserved memory
 
     // close and unlink the semaphores and shmem
-    shm_uninitialize(shm_ptr, shm_fd, SHM_NAME);
+    shm_uninitialize(shm_ptr, shm_fd, shm_name);
     sem_close(remaining_hashes);
-    sem_unlink(HASHES_SEM_NAME);
+    sem_unlink(hashes_sem_name);
 
     closeFile(fileOutput); //close file
 
@@ -144,6 +127,7 @@ int main(int argc, char const * argv[]){
 
     return 0;
 }
+
 
 /* returns amount of slaves to be used */
 int calculateSlaves(int fileCount) {
@@ -232,6 +216,33 @@ void freeMem(int slaveCount) {
     free(master2slave);
     free(masterRead);
     free(slavePids);
+
+    return;
+}
+
+// creates the processes that will calculate the hash. Connects them though the created pipes
+void createSlaves(int slaveCount) {
+    char * hashC[] = {"hashCalculate", NULL };
+    char * envC[] = { NULL };
+
+    //creation of slaveCount amount of slaves (fork)
+    for(int i = 0; i < slaveCount; i++){
+        slavePids[i] = fork();
+        if(slavePids[i] == 0){
+            //SLAVE number i
+            dup2(master2slave[i][PIPE_R_END], 0); //replace stdin with read from master2slave pipe
+            dup2(slave2master[i][PIPE_W_END], 1); //replace stdout with write from slave2master pipe
+            
+            //closing of fd's of pipes for the slave processes
+            closePipes(slaveCount);
+
+            //run the slaves
+            execve(hashC[0], hashC, envC);
+        } else if (slavePids[i] == -1){
+            perror("Error creando slave");
+            exit(1);
+        }
+    }
 
     return;
 }
