@@ -25,6 +25,7 @@ int main(int argc, char const * argv[]){
     //printing of the number of files to be hashed and the name of the shared memory block (for view process)
     fprintf(stdout, "%d\n", argc-1);
     fprintf(stdout, "%s\n", SHM_NAME);
+    fprintf(stdout, "%s\n", HASHES_SEM_NAME);
     fflush(stdout); //forces the output to be written to the pipe
 
     //creation of the file where the hash outputs will be written

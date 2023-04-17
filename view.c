@@ -32,7 +32,7 @@ int main(int argc, char * argv[]) {
         ssize_t bytes_read = getline(&shm_name, &path_maxlen, stdin);
         shm_name[bytes_read-1] = '\0';
         bytes_read = getline(&sem_name, &path_maxlen, stdin);
-        sem_name[bytes_read] = '\0';
+        sem_name[bytes_read-1] = '\0';
     }
 
     void * shm_ptr = NULL;
