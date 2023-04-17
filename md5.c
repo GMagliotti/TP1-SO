@@ -15,6 +15,11 @@ int *masterRead;
 pid_t *slavePids;
 
 int main(int argc, char const * argv[]){
+    // Unlink any possible remainder semaphores and shared memory from a 
+    // prematurely terminated previous execution
+    shm_unlink(SHM_NAME);
+    sem_unlink(HASHES_SEM_NAME);
+
     setvbuf(stdout, NULL, _IONBF, 0 );
     sem_t * remaining_hashes = sem_open(HASHES_SEM_NAME, O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0); //semaphore to keep track of the remaining hashes to be printed
     void * shm_ptr; //pointer to the shared memory block
