@@ -19,7 +19,7 @@ int main() {
         } else {
             perror("Error reading file");
             free(filePath);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
     
@@ -41,7 +41,7 @@ void processInput(char *input) {
     //writes to stdout
     if (write(STDOUT_FILENO, toWrite, strlen(toWrite)) < 0) {
         perror("Error - Could not write hash to stdout\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
 }
@@ -76,6 +76,9 @@ void calculateHash(char * hexHash, char *token) {
             perror("waitpid");
             exit(EXIT_FAILURE);
         }
+        if (WEXITSTATUS(status) != 0) {
+            exit(EXIT_FAILURE);
+        }
         if (read(pipefd[0], hexHash, 32) == -1) {
             perror("read");
             exit(EXIT_FAILURE);
@@ -95,15 +98,14 @@ void generateOut(char * toWrite, char * hexHash, char * token) {
     //extracts file name from path
     
     char * fileName = NULL;
-    if ((fileName = strrchr(token, '/')) == NULL) {
-        perror("Invalid file path; could not find /");
-        exit(1);
+    if ((fileName = strrchr(token, '/')) != NULL) {             // '/' on filePath
+            fileName += 1;  // skips the last '/', resulting in a pointer to the fileName
+    } else {                        // no '/' on filePath
+        fileName = token;
     }
-    fileName += 1;                      // skips the last '/', resulting in a pointer to the fileName
 
     //concatenates all relevant information to write to stdout
-    sprintf(toWrite, "Hash value: %s from slave (PID): %s of the file: %s\n",
-            hexHash, pidString, fileName);
+    sprintf(toWrite, "Hash value: %s from process with PID: %s of the file: %s\n", hexHash, pidString, fileName);
 
     return;
 }
