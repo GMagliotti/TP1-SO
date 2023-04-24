@@ -3,19 +3,20 @@
 #define BUF_SIZE 1024
 #define HASH_MD5_SIZE 32
 #define MUTEX_SEM_NAME "/semmies"
+#define NAMEDPIPE "./npipe"
 
 int main() {
 
     char *filePath = NULL;
     size_t len = BUF_SIZE;
     ssize_t bytesRead;
-
-    sem_t * mutex = sem_open(MUTEX_SEM_NAME, 0);
+    
+    int named_pipe_fd = open(NAMEDPIPE, O_WRONLY);
     
     while((bytesRead = getline(&filePath, &len, stdin)) != -1){
         if (bytesRead != -1) {
             filePath[bytesRead-1] = '\0';
-            processInput(filePath);
+            processInput(filePath, named_pipe_fd);
         } else {
             perror("Error reading file");
             free(filePath);
@@ -24,14 +25,13 @@ int main() {
     }
     
     free(filePath);
-    sem_close(mutex);
 
     return 0;
 }
 
 
 // receives input read in main function, will parse it and send filenames 
-void processInput(char *input) {
+void processInput(char *input, int named_pipe_fd) {
     //recibo fileName en input
     char hexHash[HASH_MD5_SIZE + 1];
     calculateHash(hexHash, input);
@@ -43,7 +43,7 @@ void processInput(char *input) {
         perror("Error - Could not write hash to stdout\n");
         exit(EXIT_FAILURE);
     }
-
+    write(named_pipe_fd, toWrite, strlen(toWrite));
 }
 
 

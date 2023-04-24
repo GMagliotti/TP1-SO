@@ -35,6 +35,10 @@ int main(int argc, char * argv[]) {
         shm_name[bytes_read-1] = '\0';
         bytes_read = getline(&sem_name, &path_maxlen, stdin);
         sem_name[bytes_read-1] = '\0';
+        
+        // Nos dimos cuenta post-entrega que el getline puede reservar
+        // memoria pero no la estabamos liberando por las dudas (Problema no aparente en Valgrind)
+        free(tempstr);
     }
 
     // acceses the shared memory

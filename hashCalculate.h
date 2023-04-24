@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-void processInput(char *input);
+void processInput(char *input, int named_pipe_fd);
 void calculateHash(char * hexHash, char *token);
 void generateOut(char * toWrite, char * hexHash, char * token);
 

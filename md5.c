@@ -3,6 +3,7 @@
 #define PIPE_R_END 0
 #define PIPE_W_END 1
 #define SHM_SIZE 1048576
+#define NAMEDPIPE "./npipe"
 
 int **slave2master;
 int **master2slave;
@@ -256,6 +257,10 @@ void setPipes(int n) {
         }
         masterRead[i] = slave2master[i][0];
     }
+    if (mkfifo(NAMEDPIPE, S_IRWXG | S_IRWXO | S_IRWXU) == -1) {
+        perror("Error creating named pipe");
+        exit(1);
+    };
 }
 
 /* closes all the pipes. Child processes must call this function */
